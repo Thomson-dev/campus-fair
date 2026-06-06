@@ -196,6 +196,21 @@ export const updateBankDetails = async (req: Request, res: Response): Promise<vo
   }
 };
 
+// ── Get vendor by code (public) ───────────────────────────────────────────────
+
+export const getByCode = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const code = (req.params['code'] as string).trim().toUpperCase();
+    const profile = await VendorProfile.findOne({ vendorCode: code })
+      .populate('user', 'name email phone')
+      .select('-bankDetails');
+    if (!profile) { res.status(404).json({ success: false, message: 'No vendor found with that code' }); return; }
+    res.json({ success: true, profile });
+  } catch (err) {
+    res.status(500).json({ success: false, message: (err as Error).message });
+  }
+};
+
 // ── Save count (student saves/unsaves a vendor) ───────────────────────────────
 
 export const incrementSaveCount = async (req: Request, res: Response): Promise<void> => {

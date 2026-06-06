@@ -5,6 +5,9 @@ import * as ctrl from '../controllers/vendorController';
 
 const router = Router();
 
+// ── Public routes (no auth) ───────────────────────────────────────────────────
+router.get('/by-code/:code', ctrl.getByCode);
+
 router.use(protect);
 
 // ── Profile CRUD ──────────────────────────────────────────────────────────────

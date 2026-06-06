@@ -1,0 +1,150 @@
+### Variables
+@baseUrl = http://localhost:5000/api
+@studentToken = 
+@vendorToken = 
+
+### ═══════════════════════════════════════════════════════════════════════════
+### AUTH ENDPOINTS
+### ═══════════════════════════════════════════════════════════════════════════
+
+### Health Check
+GET http://localhost:5000/health
+
+### Register Student
+POST {{baseUrl}}/auth/register/student
+Content-Type: application/json
+
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "password": "password123",
+  "university": "MIT"
+}
+
+### Register Vendor
+POST {{baseUrl}}/auth/register/vendor
+Content-Type: application/json
+
+{
+  "name": "Jane's Cafe",
+  "email": "vendor@example.com",
+  "password": "password123",
+  "phone": "+1234567890"
+}
+
+### Register Organizer
+POST {{baseUrl}}/auth/register/organizer
+Content-Type: application/json
+
+{
+  "name": "Event Manager",
+  "email": "organizer@example.com",
+  "password": "password123",
+  "phone": "+0987654321",
+  "institution": "Tech University"
+}
+
+### Login Student
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "john@example.com",
+  "password": "password123",
+  "role": "student"
+}
+
+### Login Vendor
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "vendor@example.com",
+  "password": "password123",
+  "role": "vendor"
+}
+
+### Get Current User (Student)
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{studentToken}}
+
+### Forgot Password
+POST {{baseUrl}}/auth/forgot-password
+Content-Type: application/json
+
+{
+  "email": "john@example.com"
+}
+
+### ═══════════════════════════════════════════════════════════════════════════
+### VENDOR ENDPOINTS (Requires Authentication)
+### ═══════════════════════════════════════════════════════════════════════════
+
+### Create Vendor Profile
+POST {{baseUrl}}/vendor/profile
+Authorization: Bearer {{vendorToken}}
+Content-Type: application/json
+
+{
+  "businessName": "Jane's Cafe",
+  "description": "Premium coffee and pastries",
+  "category": "Food & Beverage"
+}
+
+### Get My Vendor Profile
+GET {{baseUrl}}/vendor/profile
+Authorization: Bearer {{vendorToken}}
+
+### Update Vendor Profile
+PUT {{baseUrl}}/vendor/profile
+Authorization: Bearer {{vendorToken}}
+Content-Type: application/json
+
+{
+  "businessName": "Jane's Premium Cafe",
+  "description": "Updated description"
+}
+
+### Update Contact Info
+PUT {{baseUrl}}/vendor/profile/contact
+Authorization: Bearer {{vendorToken}}
+Content-Type: application/json
+
+{
+  "phone": "+1234567890",
+  "email": "vendor@example.com"
+}
+
+### Update Delivery Settings
+PUT {{baseUrl}}/vendor/profile/delivery
+Authorization: Bearer {{vendorToken}}
+Content-Type: application/json
+
+{
+  "deliveryRadius": 5,
+  "minOrder": 15
+}
+
+### Update Bank Details
+PUT {{baseUrl}}/vendor/profile/bank
+Authorization: Bearer {{vendorToken}}
+Content-Type: application/json
+
+{
+  "accountNumber": "1234567890",
+  "routingNumber": "021000021",
+  "accountName": "Jane Smith"
+}
+
+### Get Public Vendor Profile
+GET {{baseUrl}}/vendor/USER_ID/profile
+Authorization: Bearer {{studentToken}}
+
+### Save Vendor (Student)
+POST {{baseUrl}}/vendor/save
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{
+  "vendorId": "VENDOR_ID_HERE"
+}

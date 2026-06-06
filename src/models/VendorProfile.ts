@@ -38,6 +38,7 @@ export type VendorCategory =
 export interface IVendorProfile {
   user: Types.ObjectId;
   businessName: string;
+  vendorCode: string;
   category: VendorCategory;
   description?: string;
   tagline?: string;
@@ -66,6 +67,7 @@ const vendorProfileSchema = new Schema<IVendorProfile, VendorProfileModelType>(
   {
     user:         { type: Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
     businessName: { type: String, required: true, trim: true, maxlength: 80 },
+    vendorCode:   { type: String, unique: true, sparse: true, uppercase: true, index: true },
     category:     { type: String, required: true, enum: ['Food & Drinks', 'Fashion', 'Tech & Gadgets', 'Health & Beauty', 'Arts & Crafts', 'Services', 'Other'] },
     description:  { type: String, maxlength: 500, trim: true },
     tagline:      { type: String, maxlength: 100, trim: true },
@@ -98,10 +100,27 @@ const vendorProfileSchema = new Schema<IVendorProfile, VendorProfileModelType>(
   { timestamps: true }
 );
 
-// ── Auto-compute isProfileComplete ────────────────────────────────────────────
+// ── Auto-generate vendorCode + compute isProfileComplete ──────────────────────
 
-vendorProfileSchema.pre('save', function (next) {
+vendorProfileSchema.pre('save', async function (next) {
   this.isProfileComplete = !!(this.businessName && this.category && this.description && this.photo?.url);
+
+  if (!this.vendorCode && this.businessName) {
+    const initials = this.businessName
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((w: string) => w[0]?.toUpperCase() ?? 'X')
+      .join('');
+    for (let i = 0; i < 10; i++) {
+      const digits = Math.floor(1000 + Math.random() * 9000).toString();
+      const code = `${initials}-${digits}`;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const exists = await (this.constructor as any).findOne({ vendorCode: code });
+      if (!exists) { this.vendorCode = code; break; }
+    }
+  }
+
   next();
 });
 
