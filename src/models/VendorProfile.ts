@@ -103,7 +103,7 @@ const vendorProfileSchema = new Schema<IVendorProfile, VendorProfileModelType>(
 // ── Auto-generate vendorCode + compute isProfileComplete ──────────────────────
 
 vendorProfileSchema.pre('save', async function (next) {
-  this.isProfileComplete = !!(this.businessName && this.category && this.description && this.photo?.url);
+  this.isProfileComplete = !!(this.businessName && this.category && this.description);
 
   if (!this.vendorCode && this.businessName) {
     const initials = this.businessName
