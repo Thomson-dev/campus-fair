@@ -25,17 +25,26 @@ export const registerStudent = async (req: Request, res: Response): Promise<void
   }
 };
 
-// ── Vendor registration — Step 1 ──────────────────────────────────────────────
+// ── Vendor registration ───────────────────────────────────────────────────────
 
 export const registerVendor = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, email, password, phone } = req.body as Record<string, string>;
+    const { name, email, password, phone, businessName, category, description, photoUrl, photoPublicId } = req.body as Record<string, string>;
     if (await User.findOne({ email })) {
       res.status(409).json({ success: false, message: 'Email already in use' });
       return;
     }
     const user = await User.create({ name, email, password, phone, role: 'vendor' });
-    res.status(201).json({ ...authResponse(user, signToken(user)), profileComplete: false });
+    try {
+      const profileData: Record<string, unknown> = { user: user._id, businessName, category, description };
+      if (photoUrl) profileData['photo'] = { url: photoUrl, publicId: photoPublicId ?? '' };
+      await VendorProfile.create(profileData);
+    } catch (profileErr) {
+      await User.deleteOne({ _id: user._id });
+      throw profileErr;
+    }
+    sendWelcome(email, name, 'vendor').catch(console.error);
+    res.status(201).json({ ...authResponse(user, signToken(user)), profileComplete: true });
   } catch (err) {
     res.status(500).json({ success: false, message: (err as Error).message });
   }
