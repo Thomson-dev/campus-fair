@@ -30,13 +30,15 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    const { name, description, price } = req.body as Record<string, string>;
+    const { name, description, price, imageUrl } = req.body as Record<string, string>;
+
     const product = await Product.create({
       vendor: profile._id,
       name,
       description,
       price: Number(price),
       position: Date.now(),
+      ...(imageUrl && { imageUrl }),
     });
 
     res.status(201).json({ success: true, product });
@@ -52,7 +54,7 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
     const profile = await VendorProfile.findOne({ user: req.user!._id });
     if (!profile) { res.status(404).json({ success: false, message: 'Profile not found' }); return; }
 
-    const allowed = ['name', 'description', 'price', 'position'] as const;
+    const allowed = ['name', 'description', 'price', 'position', 'imageUrl'] as const;
     const updates: Record<string, unknown> = {};
     allowed.forEach((k) => { if (req.body[k] !== undefined) updates[k] = k === 'price' || k === 'position' ? Number(req.body[k]) : req.body[k]; });
 
