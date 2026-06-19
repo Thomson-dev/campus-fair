@@ -11,7 +11,7 @@ router.get('/vendor/:vendorId', ctrl.listProducts);
 // Vendor only
 router.use(protect);
 router.post('/',                        restrictTo('vendor'), ctrl.createProduct);
-router.put('/:id',                      restrictTo('vendor'), ctrl.updateProduct);
+router.patch('/:id',                    restrictTo('vendor'), ctrl.updateProduct);
 router.delete('/:id',                   restrictTo('vendor'), ctrl.deleteProduct);
 router.patch('/:id/availability',       restrictTo('vendor'), ctrl.toggleAvailability);
 router.post('/:id/image',               restrictTo('vendor'), upload.single('image'), ctrl.uploadProductImage);
