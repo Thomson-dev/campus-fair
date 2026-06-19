@@ -7,6 +7,8 @@ const FOLDER = 'campus_fair/products';
 const MAX_PRODUCTS = 50;
 
 // ── List products for a vendor (public) ───────────────────────────────────────
+// GET /api/products/vendor/:vendorId
+// Returns all products for a vendor sorted by position (drag-order).
 
 export const listProducts = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -18,12 +20,17 @@ export const listProducts = async (req: Request, res: Response): Promise<void> =
 };
 
 // ── Create product (vendor only) ──────────────────────────────────────────────
+// POST /api/products
+// Body: { name, description, price, imageUrl? }
+// imageUrl is optional — the Flutter app uploads the image directly to Cloudinary
+// and passes back the resulting URL here.
 
 export const createProduct = async (req: Request, res: Response): Promise<void> => {
   try {
     const profile = await VendorProfile.findOne({ user: req.user!._id });
     if (!profile) { res.status(404).json({ success: false, message: 'Vendor profile not found' }); return; }
 
+    // Enforce per-vendor product cap
     const count = await Product.countDocuments({ vendor: profile._id });
     if (count >= MAX_PRODUCTS) {
       res.status(400).json({ success: false, message: `Product limit reached (max ${MAX_PRODUCTS})` });
@@ -32,6 +39,7 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
 
     const { name, description, price, imageUrl } = req.body as Record<string, string>;
 
+    // position = timestamp so new products appear at the bottom by default
     const product = await Product.create({
       vendor: profile._id,
       name,
@@ -48,12 +56,16 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
 };
 
 // ── Update product ────────────────────────────────────────────────────────────
+// PUT /api/products/:id
+// Body: any subset of { name, description, price, position, imageUrl }
+// Only the vendor who owns the product can update it.
 
 export const updateProduct = async (req: Request, res: Response): Promise<void> => {
   try {
     const profile = await VendorProfile.findOne({ user: req.user!._id });
     if (!profile) { res.status(404).json({ success: false, message: 'Profile not found' }); return; }
 
+    // Whitelist updatable fields to prevent mass-assignment
     const allowed = ['name', 'description', 'price', 'position', 'imageUrl'] as const;
     const updates: Record<string, unknown> = {};
     allowed.forEach((k) => { if (req.body[k] !== undefined) updates[k] = k === 'price' || k === 'position' ? Number(req.body[k]) : req.body[k]; });
@@ -71,6 +83,8 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
 };
 
 // ── Delete product ────────────────────────────────────────────────────────────
+// DELETE /api/products/:id
+// Also removes the image from Cloudinary if one exists.
 
 export const deleteProduct = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -80,6 +94,7 @@ export const deleteProduct = async (req: Request, res: Response): Promise<void> 
     const product = await Product.findOneAndDelete({ _id: req.params['id'], vendor: profile._id });
     if (!product) { res.status(404).json({ success: false, message: 'Product not found' }); return; }
 
+    // Clean up Cloudinary asset — non-fatal if it fails
     if (product.imagePublicId) await destroy(product.imagePublicId).catch(console.error);
     res.json({ success: true, message: 'Product deleted' });
   } catch (err) {
@@ -88,6 +103,8 @@ export const deleteProduct = async (req: Request, res: Response): Promise<void> 
 };
 
 // ── Toggle availability ───────────────────────────────────────────────────────
+// PATCH /api/products/:id/availability
+// Flips the available flag — hides/shows the product from students.
 
 export const toggleAvailability = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -106,6 +123,9 @@ export const toggleAvailability = async (req: Request, res: Response): Promise<v
 };
 
 // ── Upload product image ──────────────────────────────────────────────────────
+// POST /api/products/:id/image  (multipart/form-data, field: "image")
+// Alternative to passing imageUrl in the body — uploads the raw file to Cloudinary
+// and updates the product record. Deletes the previous image if one exists.
 
 export const uploadProductImage = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -117,6 +137,7 @@ export const uploadProductImage = async (req: Request, res: Response): Promise<v
     const product = await Product.findOne({ _id: req.params['id'], vendor: profile._id });
     if (!product) { res.status(404).json({ success: false, message: 'Product not found' }); return; }
 
+    // Remove old Cloudinary asset before uploading the replacement
     if (product.imagePublicId) await destroy(product.imagePublicId).catch(console.error);
 
     const result = await uploadBuffer(req.file.buffer, {
