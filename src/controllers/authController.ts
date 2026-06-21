@@ -138,6 +138,19 @@ export const googleAuth = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
+// ── Save FCM token ────────────────────────────────────────────────────────────
+
+export const saveFcmToken = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { fcmToken } = req.body as { fcmToken: string };
+    if (!fcmToken) { res.status(400).json({ success: false, message: 'fcmToken is required' }); return; }
+    await User.findByIdAndUpdate(req.user!._id, { fcmToken });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: (err as Error).message });
+  }
+};
+
 // ── Get current user ──────────────────────────────────────────────────────────
 
 export const getMe = async (req: Request, res: Response): Promise<void> => {

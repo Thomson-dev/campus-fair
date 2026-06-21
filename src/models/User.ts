@@ -15,6 +15,7 @@ export interface IUser {
   institution?: string;
   isVerified: boolean;
   isActive: boolean;
+  fcmToken?: string;
   passwordResetToken?: string;
   passwordResetExpires?: Date;
   createdAt: Date;
@@ -45,6 +46,7 @@ const userSchema = new Schema<IUser, UserModelType, IUserMethods>(
     institution: { type: String, trim: true },
     isVerified:  { type: Boolean, default: false },
     isActive:    { type: Boolean, default: true },
+    fcmToken:    { type: String },
     passwordResetToken:   String,
     passwordResetExpires: Date,
   },

@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import VendorProfile from '../models/VendorProfile';
 import SavedVendor from '../models/SavedVendor';
 import Product from '../models/Product';
+import User from '../models/User';
+import { sendToUser } from '../utils/notify';
 
 // ── Save vendor by code ───────────────────────────────────────────────────────
 
@@ -21,6 +23,13 @@ export const saveByCode = async (req: Request, res: Response): Promise<void> => 
     if (!alreadySaved) {
       await SavedVendor.create({ student: req.user!._id, vendor: profile._id });
       await VendorProfile.findByIdAndUpdate(profile._id, { $inc: { saveCount: 1 } });
+
+      // Notify the student only — never the vendor
+      const student = await User.findById(req.user!._id).select('fcmToken');
+      if (student?.fcmToken) {
+        const biz = (profile as unknown as { businessName: string }).businessName;
+        sendToUser(student.fcmToken, 'Vendor saved!', `${biz} has been added to your Saved tab.`).catch(() => {});
+      }
     }
 
     const products = await Product.find({ vendor: profile._id, available: true }).sort({ position: 1 });

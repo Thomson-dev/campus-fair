@@ -54,6 +54,7 @@ router.post('/google',
 // ── Current user ──────────────────────────────────────────────────────────────
 
 router.get('/me', protect, ctrl.getMe);
+router.post('/fcm-token', protect, ctrl.saveFcmToken);
 
 // ── Password reset ────────────────────────────────────────────────────────────
 
