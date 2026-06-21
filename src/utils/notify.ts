@@ -19,7 +19,18 @@ export async function sendToUser(
 ): Promise<void> {
   if (!fcmToken || !getApps().length) return;
   try {
-    await getMessaging().send({ token: fcmToken, notification: { title, body }, data });
+    await getMessaging().send({
+      token: fcmToken,
+      notification: { title, body },
+      android: {
+        priority: 'high',
+        notification: { channelId: 'campus_fair_alerts', sound: 'default' },
+      },
+      apns: {
+        payload: { aps: { sound: 'default' } },
+      },
+      data,
+    });
   } catch (err) {
     console.error('[notify] FCM send failed:', (err as Error).message);
   }
