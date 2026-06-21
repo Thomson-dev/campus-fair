@@ -26,9 +26,16 @@ export const saveByCode = async (req: Request, res: Response): Promise<void> => 
 
       // Notify the student only — never the vendor
       const student = await User.findById(req.user!._id).select('fcmToken');
+      console.log('[saveByCode] student fcmToken:', student?.fcmToken ?? 'NOT SET');
+
       if (student?.fcmToken) {
         const biz = (profile as unknown as { businessName: string }).businessName;
-        sendToUser(student.fcmToken, 'Vendor saved!', `${biz} has been added to your Saved tab.`).catch(() => {});
+        console.log('[saveByCode] sending notification to student, vendor:', biz);
+        sendToUser(student.fcmToken, 'Vendor saved!', `${biz} has been added to your Saved tab.`)
+          .then(() => console.log('[saveByCode] notification sent ok'))
+          .catch((e) => console.error('[saveByCode] notification failed:', e));
+      } else {
+        console.log('[saveByCode] skipping notification — no fcmToken on student');
       }
     }
 

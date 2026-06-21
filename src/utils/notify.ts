@@ -5,6 +5,9 @@ if (!getApps().length) {
   const serviceAccount = process.env['FIREBASE_SERVICE_ACCOUNT'];
   if (serviceAccount) {
     initializeApp({ credential: cert(JSON.parse(serviceAccount)) });
+    console.log('[notify] Firebase Admin initialised');
+  } else {
+    console.warn('[notify] FIREBASE_SERVICE_ACCOUNT not set — push notifications disabled');
   }
 }
 
