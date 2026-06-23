@@ -29,7 +29,8 @@ export interface IOrder {
   totalAmount: number;
   platformFee: number;
   vendorReceives: number;
-  status: 'pending' | 'confirmed' | 'ready' | 'delivered' | 'rejected' | 'disputed';
+  status: 'pending' | 'confirmed' | 'ready' | 'delivered' | 'rejected' | 'cancelled' | 'disputed';
+  disputeReason?: string;
   studentNote?: string;
   rejectionReason?: string;
   paystackReference: string;
@@ -77,9 +78,10 @@ const orderSchema = new Schema<IOrder, OrderModelType>(
     totalAmount:       { type: Number, required: true, min: 0 },
     platformFee:       { type: Number, required: true, min: 0 },
     vendorReceives:    { type: Number, required: true, min: 0 },
-    status:            { type: String, enum: ['pending', 'confirmed', 'ready', 'delivered', 'rejected', 'disputed'], default: 'pending' },
+    status:            { type: String, enum: ['pending', 'confirmed', 'ready', 'delivered', 'rejected', 'cancelled', 'disputed'], default: 'pending' },
     studentNote:       String,
     rejectionReason:   String,
+    disputeReason:     String,
     paystackReference: { type: String, required: true, unique: true },
     paidAt:            Date,
     statusHistory:     { type: [statusEventSchema], default: [] },

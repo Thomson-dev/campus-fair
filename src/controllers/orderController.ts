@@ -128,6 +128,40 @@ export const getOrderDetail = async (req: Request, res: Response): Promise<void>
   }
 };
 
+// ── Cancel or dispute order (student only) ───────────────────────────────────
+
+export const studentOrderAction = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { action, reason } = req.body as { action: 'cancel' | 'dispute'; reason?: string };
+    const order = await Order.findOne({ _id: req.params['id'], student: req.user!._id });
+    if (!order) { res.status(404).json({ success: false, message: 'Order not found' }); return; }
+
+    if (action === 'cancel') {
+      if (order.status !== 'pending') {
+        res.status(400).json({ success: false, message: 'Only pending orders can be cancelled' });
+        return;
+      }
+      order.status = 'cancelled';
+    } else if (action === 'dispute') {
+      if (order.status !== 'delivered') {
+        res.status(400).json({ success: false, message: 'Only delivered orders can be disputed' });
+        return;
+      }
+      order.status = 'disputed';
+      if (reason) order.disputeReason = reason;
+    } else {
+      res.status(400).json({ success: false, message: 'Invalid action. Use cancel or dispute.' });
+      return;
+    }
+
+    order.statusHistory.push({ status: order.status, timestamp: new Date() });
+    await order.save();
+    res.json({ success: true, order });
+  } catch (err) {
+    res.status(500).json({ success: false, message: (err as Error).message });
+  }
+};
+
 // ── Update order status (vendor only) ────────────────────────────────────────
 
 const VALID_TRANSITIONS: Record<string, string[]> = {

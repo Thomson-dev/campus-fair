@@ -21,13 +21,35 @@ A modern REST API backend for the Campus Fair application, providing authenticat
   - JWT-based authentication
   - Google Sign-In integration (students only)
   - Password reset via email
+  - FCM push token storage for notifications
 
 - **Vendor Management**
   - Create and manage vendor profiles
   - Photo uploads to Cloudinary
   - Gallery management
-  - Contact & delivery information
-  - Bank details for payments
+  - Contact, delivery methods, and bank details
+  - Vendor code system — students save vendors by 6-character code
+
+- **Order Management**
+  - Students place orders with Paystack reference
+  - Vendors confirm → ready → deliver orders
+  - Students can cancel pending orders or dispute delivered orders
+  - Full status history tracking (`statusHistory` array)
+
+- **Push Notifications**
+  - Firebase Admin SDK integration
+  - Students receive push notification when they save a vendor by code
+  - FCM tokens stored per user on login
+
+- **Payments**
+  - Paystack payment initialization
+  - Webhook listener — verifies signature, updates order on `charge.success`
+  - 8% platform fee, 92% to vendor
+
+- **Events**
+  - Organizers create and manage trade fair events
+  - Public event listing and detail
+  - Vendor roster per event
 
 - **Security**
   - Rate limiting on auth endpoints
@@ -120,8 +142,9 @@ Response:
 | POST | `/login` | Login with email and password |
 | POST | `/google` | Google Sign-In authentication |
 | GET | `/me` | Get current user info (requires auth) |
-| POST | `/forgot-password` | Request password reset |
+| POST | `/forgot-password` | Request password reset email |
 | POST | `/reset-password/:token` | Reset password with token |
+| POST | `/fcm-token` | Save FCM push token for the logged-in user (requires auth) |
 
 ### Vendor (`/api/vendor`)
 
@@ -134,10 +157,76 @@ Response:
 | POST | `/profile/gallery` | Add gallery image (vendor only) |
 | DELETE | `/profile/gallery/:publicId` | Remove gallery image (vendor only) |
 | PUT | `/profile/contact` | Update contact info (vendor only) |
-| PUT | `/profile/delivery` | Update delivery settings (vendor only) |
+| PUT | `/profile/delivery` | Update delivery methods & fees (vendor only) |
 | PUT | `/profile/bank` | Update bank details (vendor only) |
+| GET | `/by-code/:code` | Get vendor profile by vendor code (public) |
 | GET | `/:userId/profile` | Get public vendor profile |
-| POST | `/save` | Save vendor (student only) |
+| POST | `/save` | Increment vendor save count (student only) |
+
+### Student (`/api/student`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/saved` | Get student's saved vendors (student only) |
+| POST | `/save-by-code` | Save a vendor by their vendor code (student only) |
+| DELETE | `/saved/:vendorId` | Unsave a vendor (student only) |
+| GET | `/vendors` | Browse all vendors, supports `?category=` and `?q=` (public) |
+
+### Products (`/api/products`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/` | Create a product (vendor only) |
+| GET | `/vendor/:vendorId` | List products for a vendor (public) |
+| PATCH | `/:id` | Update a product (vendor only) |
+| DELETE | `/:id` | Delete a product (vendor only) |
+| PATCH | `/:id/availability` | Toggle product availability (vendor only) |
+| POST | `/:id/image` | Upload product image (vendor only) |
+
+### Orders (`/api/orders`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/` | Place a new order (student only) |
+| GET | `/student` | Get all orders for the logged-in student (student only) |
+| GET | `/vendor` | Get all orders for the logged-in vendor (vendor only) |
+| GET | `/:id` | Get order detail (any authenticated user) |
+| PATCH | `/:id/action` | Cancel a pending order or dispute a delivered order (student only) |
+| PATCH | `/:id/status` | Update order status: confirmed → ready → delivered / rejected (vendor only) |
+
+**Order statuses:** `pending` → `confirmed` → `ready` → `delivered`. Can also become `rejected`, `cancelled`, or `disputed`.
+
+**Student actions (`PATCH /:id/action` body):**
+```json
+{ "action": "cancel" }             // only allowed when status is pending
+{ "action": "dispute", "reason": "Item was wrong" }  // only allowed when status is delivered
+```
+
+### Announcements (`/api/announcements`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/` | Create announcement (vendor only) |
+| GET | `/vendor/:vendorId` | Get announcements for a vendor (public) |
+| DELETE | `/:id` | Delete an announcement (vendor only) |
+
+### Payments (`/api/payments`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/initialize` | Initialize a Paystack payment, returns `authorization_url` + `reference` (student only) |
+| POST | `/webhook` | Paystack webhook — verifies signature and updates order on `charge.success` (public) |
+
+### Events (`/api/events`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | List all events (public) |
+| GET | `/:id` | Get event detail (public) |
+| POST | `/` | Create an event (organizer only) |
+| PUT | `/:id` | Update an event (organizer only) |
+| POST | `/:id/vendors` | Add a vendor to an event (organizer only) |
+| DELETE | `/:id/vendors/:vendorId` | Remove a vendor from an event (organizer only) |
 
 ## 🔐 Authentication
 
@@ -158,21 +247,37 @@ Authorization: Bearer <JWT_TOKEN>
 ```
 backend/
 ├── src/
-│   ├── config/          # Database & configuration
+│   ├── config/          # Database connection
 │   ├── controllers/     # Request handlers
 │   │   ├── authController.ts
-│   │   └── vendorController.ts
-│   ├── middleware/      # Auth, validation, upload handlers
+│   │   ├── vendorController.ts
+│   │   ├── studentController.ts
+│   │   ├── productController.ts
+│   │   ├── orderController.ts
+│   │   ├── announcementController.ts
+│   │   ├── paymentController.ts
+│   │   └── eventController.ts
+│   ├── middleware/      # Auth (protect/restrictTo), validation, multer upload
 │   ├── models/          # Mongoose schemas
 │   │   ├── User.ts
-│   │   └── VendorProfile.ts
+│   │   ├── VendorProfile.ts
+│   │   ├── Product.ts
+│   │   ├── Order.ts
+│   │   ├── Announcement.ts
+│   │   └── Event.ts
 │   ├── routes/          # API route definitions
 │   │   ├── auth.ts
-│   │   └── vendor.ts
-│   ├── types/           # TypeScript type definitions
-│   └── utils/           # Helper functions
-├── server.ts            # Express app setup
-├── .env                 # Environment variables
+│   │   ├── vendor.ts
+│   │   ├── student.ts
+│   │   ├── products.ts
+│   │   ├── orders.ts
+│   │   ├── announcements.ts
+│   │   ├── payments.ts
+│   │   └── events.ts
+│   ├── types/           # TypeScript type extensions (Express Request)
+│   └── utils/           # notify.ts (Firebase Admin push), email helpers
+├── server.ts            # Express app entry point
+├── .env                 # Environment variables (not committed)
 ├── package.json
 ├── tsconfig.json
 └── test.http            # REST Client test file
@@ -260,6 +365,10 @@ All endpoints return consistent error responses:
 - `multer` - File upload handling
 - `nodemailer` - Email service
 
+### Notifications & Payments
+- `firebase-admin` - Push notifications via FCM
+- `paystack` / Paystack REST API - Payment initialization and webhook verification
+
 ### Development
 - `tsx` - TypeScript executor
 - `nodemon` - Auto-reload
@@ -294,6 +403,8 @@ Get-Process -Id (Get-NetTCPConnection -LocalPort 5000).OwningProcess | Stop-Proc
 | `JWT_EXPIRES_IN` | Token expiration | `1d`, `7d` |
 | `NODE_ENV` | Environment | `development`, `production` |
 | `CLIENT_ORIGIN` | Frontend URL for CORS | `http://localhost:3000` |
+| `PAYSTACK_SECRET_KEY` | Paystack secret key | `sk_live_...` |
+| `FIREBASE_SERVICE_ACCOUNT` | Firebase service account JSON (stringified) | `{"type":"service_account",...}` |
 
 ## 📄 License
 
