@@ -39,6 +39,11 @@ export const getMyProfile = async (req: Request, res: Response): Promise<void> =
   try {
     const profile = await VendorProfile.findOne({ user: req.user!._id }).populate('user', 'name email phone');
     if (!profile) { res.status(404).json({ success: false, message: 'Profile not found. Complete registration first.' }); return; }
+
+    // Backfill vendorCode for profiles saved via findOneAndUpdate before this field existed,
+    // since findOneAndUpdate bypasses the pre('save') hook that generates it.
+    if (!profile.vendorCode && profile.businessName) await profile.save();
+
     res.json({ success: true, profile });
   } catch (err) {
     res.status(500).json({ success: false, message: (err as Error).message });
