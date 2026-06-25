@@ -27,14 +27,10 @@ export interface IOrder {
   deliveryFee: number;
   deliveryAddress?: string;
   totalAmount: number;
-  platformFee: number;
-  vendorReceives: number;
-  status: 'pending' | 'confirmed' | 'ready' | 'delivered' | 'rejected' | 'cancelled' | 'disputed';
+  status: 'pending' | 'confirmed' | 'ready' | 'delivered' | 'rejected' | 'cancelled' | 'disputed' | 'expired';
   disputeReason?: string;
   studentNote?: string;
   rejectionReason?: string;
-  paystackReference: string;
-  paidAt?: Date;
   statusHistory: IStatusEvent[];
   createdAt: Date;
   updatedAt: Date;
@@ -76,14 +72,10 @@ const orderSchema = new Schema<IOrder, OrderModelType>(
     deliveryFee:       { type: Number, required: true, min: 0, default: 0 },
     deliveryAddress:   String,
     totalAmount:       { type: Number, required: true, min: 0 },
-    platformFee:       { type: Number, required: true, min: 0 },
-    vendorReceives:    { type: Number, required: true, min: 0 },
-    status:            { type: String, enum: ['pending', 'confirmed', 'ready', 'delivered', 'rejected', 'cancelled', 'disputed'], default: 'pending' },
+    status:            { type: String, enum: ['pending', 'confirmed', 'ready', 'delivered', 'rejected', 'cancelled', 'disputed', 'expired'], default: 'pending' },
     studentNote:       String,
     rejectionReason:   String,
     disputeReason:     String,
-    paystackReference: { type: String, required: true, unique: true },
-    paidAt:            Date,
     statusHistory:     { type: [statusEventSchema], default: [] },
   },
   { timestamps: true }
@@ -91,7 +83,6 @@ const orderSchema = new Schema<IOrder, OrderModelType>(
 
 orderSchema.index({ student: 1, createdAt: -1 });
 orderSchema.index({ vendor: 1, createdAt: -1 });
-orderSchema.index({ paystackReference: 1 }, { unique: true });
 
 // Auto-generate orderId: ORD- + 4 uppercase hex chars
 orderSchema.pre('save', function (next) {

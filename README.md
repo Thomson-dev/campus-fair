@@ -11,7 +11,7 @@ A modern REST API backend for the Campus Fair application, providing authenticat
 - **Authentication:** JWT + Google OAuth
 - **Image Storage:** Cloudinary
 - **Email Service:** Nodemailer
-- **Security:** Helmet, CORS, Rate Limiting
+- **Security:** Helmet, CORS, Rate Limiting 
 - **Logging:** Morgan
 
 ## ✨ Features
@@ -31,7 +31,7 @@ A modern REST API backend for the Campus Fair application, providing authenticat
   - Vendor code system — students save vendors by 6-character code
 
 - **Order Management**
-  - Students place orders with Paystack reference
+  - Students place orders for pickup or delivery — no online payment; the student pays the vendor directly (cash or transfer) when the order is handed over
   - Vendors confirm → ready → deliver orders
   - Students can cancel pending orders or dispute delivered orders
   - Full status history tracking (`statusHistory` array)
@@ -40,11 +40,6 @@ A modern REST API backend for the Campus Fair application, providing authenticat
   - Firebase Admin SDK integration
   - Students receive push notification when they save a vendor by code
   - FCM tokens stored per user on login
-
-- **Payments**
-  - Paystack payment initialization
-  - Webhook listener — verifies signature, updates order on `charge.success`
-  - 8% platform fee, 92% to vendor
 
 - **Events**
   - Organizers create and manage trade fair events
@@ -187,7 +182,7 @@ Response:
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/` | Place a new order (student only) |
+| POST | `/` | Place a new order (student only) — no payment processing; the order is created directly |
 | GET | `/student` | Get all orders for the logged-in student (student only) |
 | GET | `/vendor` | Get all orders for the logged-in vendor (vendor only) |
 | GET | `/:id` | Get order detail (any authenticated user) |
@@ -195,6 +190,8 @@ Response:
 | PATCH | `/:id/status` | Update order status: confirmed → ready → delivered / rejected (vendor only) |
 
 **Order statuses:** `pending` → `confirmed` → `ready` → `delivered`. Can also become `rejected`, `cancelled`, or `disputed`.
+
+**Payment model:** the app facilitates the order, tracking, and notifications only — it does not process payment. The student pays the vendor in person (cash or bank transfer) when the order is handed over, whether that's pickup, hostel delivery, or courier. There is no payment gateway, webhook, or automatic refund — if a vendor never delivers, no money was ever taken.
 
 **Student actions (`PATCH /:id/action` body):**
 ```json
@@ -209,13 +206,6 @@ Response:
 | POST | `/` | Create announcement (vendor only) |
 | GET | `/vendor/:vendorId` | Get announcements for a vendor (public) |
 | DELETE | `/:id` | Delete an announcement (vendor only) |
-
-### Payments (`/api/payments`)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/initialize` | Initialize a Paystack payment, returns `authorization_url` + `reference` (student only) |
-| POST | `/webhook` | Paystack webhook — verifies signature and updates order on `charge.success` (public) |
 
 ### Events (`/api/events`)
 
@@ -255,7 +245,6 @@ backend/
 │   │   ├── productController.ts
 │   │   ├── orderController.ts
 │   │   ├── announcementController.ts
-│   │   ├── paymentController.ts
 │   │   └── eventController.ts
 │   ├── middleware/      # Auth (protect/restrictTo), validation, multer upload
 │   ├── models/          # Mongoose schemas
@@ -272,7 +261,6 @@ backend/
 │   │   ├── products.ts
 │   │   ├── orders.ts
 │   │   ├── announcements.ts
-│   │   ├── payments.ts
 │   │   └── events.ts
 │   ├── types/           # TypeScript type extensions (Express Request)
 │   └── utils/           # notify.ts (Firebase Admin push), email helpers
@@ -365,9 +353,8 @@ All endpoints return consistent error responses:
 - `multer` - File upload handling
 - `nodemailer` - Email service
 
-### Notifications & Payments
+### Notifications
 - `firebase-admin` - Push notifications via FCM
-- `paystack` / Paystack REST API - Payment initialization and webhook verification
 
 ### Development
 - `tsx` - TypeScript executor
@@ -403,7 +390,6 @@ Get-Process -Id (Get-NetTCPConnection -LocalPort 5000).OwningProcess | Stop-Proc
 | `JWT_EXPIRES_IN` | Token expiration | `1d`, `7d` |
 | `NODE_ENV` | Environment | `development`, `production` |
 | `CLIENT_ORIGIN` | Frontend URL for CORS | `http://localhost:3000` |
-| `PAYSTACK_SECRET_KEY` | Paystack secret key | `sk_live_...` |
 | `FIREBASE_SERVICE_ACCOUNT` | Firebase service account JSON (stringified) | `{"type":"service_account",...}` |
 
 ## 📄 License

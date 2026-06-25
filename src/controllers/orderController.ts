@@ -2,14 +2,14 @@ import { Request, Response } from 'express';
 import Order from '../models/Order';
 import VendorProfile from '../models/VendorProfile';
 import Product from '../models/Product';
+import User from '../models/User';
+import { sendToUser } from '../utils/notify';
 
-const COMMISSION = 0.08;
-
-// ── Create order (student, after payment confirmed) ───────────────────────────
+// ── Create order (student — vendor is paid in person on delivery) ────────────
 
 export const createOrder = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { vendorId, items, deliveryMethod, deliveryFee, deliveryAddress, studentNote, paystackReference } =
+    const { vendorId, items, deliveryMethod, deliveryFee, deliveryAddress, studentNote } =
       req.body as {
         vendorId: string;
         items: { productId: string; quantity: number }[];
@@ -17,19 +17,7 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
         deliveryFee: number;
         deliveryAddress?: string;
         studentNote?: string;
-        paystackReference: string;
       };
-
-    if (!paystackReference) {
-      res.status(400).json({ success: false, message: 'Paystack reference is required' });
-      return;
-    }
-
-    const existing = await Order.findOne({ paystackReference });
-    if (existing) {
-      res.status(409).json({ success: false, message: 'Order with this reference already exists' });
-      return;
-    }
 
     const vendorProfile = await VendorProfile.findById(vendorId).populate('user', '_id');
     if (!vendorProfile) { res.status(404).json({ success: false, message: 'Vendor not found' }); return; }
@@ -48,8 +36,6 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
 
     const subtotal = lineItems.reduce((s, i) => s + i.subtotal, 0);
     const totalAmount = subtotal + Number(deliveryFee);
-    const platformFee = Math.round(totalAmount * COMMISSION);
-    const vendorReceives = totalAmount - platformFee;
 
     const order = await Order.create({
       student: req.user!._id,
@@ -63,13 +49,20 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
       deliveryFee: Number(deliveryFee),
       deliveryAddress,
       totalAmount,
-      platformFee,
-      vendorReceives,
       studentNote,
-      paystackReference,
-      paidAt: new Date(),
       statusHistory: [{ status: 'pending', timestamp: new Date() }],
     });
+
+    // Notify the vendor of the new order
+    const vendorUser = await User.findById(order.vendorUser).select('fcmToken');
+    if (vendorUser?.fcmToken) {
+      sendToUser(
+        vendorUser.fcmToken,
+        'New order received!',
+        `${req.user!.name} placed an order for ₦${totalAmount.toLocaleString()}.`,
+        { orderId: String(order._id), type: 'new_order' }
+      ).catch((e) => console.error('[createOrder] notification failed:', e));
+    }
 
     res.status(201).json({ success: true, order });
   } catch (err) {
@@ -189,6 +182,22 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
     order.statusHistory.push({ status, timestamp: new Date() });
     if (status === 'rejected' && rejectionReason) order.rejectionReason = rejectionReason;
     await order.save();
+
+    // Notify the student of the status change
+    const STATUS_MESSAGES: Record<string, string> = {
+      confirmed: 'Your order has been confirmed by the vendor!',
+      ready:     'Your order is ready!',
+      delivered: 'Your order has been delivered. Enjoy!',
+      rejected:  `Your order was rejected.${rejectionReason ? ` Reason: ${rejectionReason}` : ''}`,
+    };
+    const body = STATUS_MESSAGES[status];
+    if (body) {
+      const student = await User.findById(order.student).select('fcmToken');
+      if (student?.fcmToken) {
+        sendToUser(student.fcmToken, 'Order update', body, { orderId: String(order._id), type: 'order_status', status })
+          .catch((e) => console.error('[updateOrderStatus] notification failed:', e));
+      }
+    }
 
     res.json({ success: true, order });
   } catch (err) {

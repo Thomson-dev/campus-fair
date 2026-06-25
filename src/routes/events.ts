@@ -6,6 +6,11 @@ const router = Router();
 
 // Public
 router.get('/',          ctrl.listEvents);
+
+// Organizer only — must be registered before the public '/:id' route below,
+// otherwise Express matches '/mine' as { id: 'mine' } on the public route first.
+router.get('/mine',      protect, restrictTo('organizer'), ctrl.listMyEvents);
+
 router.get('/:id',       ctrl.getEvent);
 
 // Organizer only

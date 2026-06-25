@@ -29,6 +29,19 @@ export const getEvent = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+// ── List my events (organizer only) ───────────────────────────────────────────
+
+export const listMyEvents = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const events = await Event.find({ organizer: req.user!._id })
+      .sort({ date: -1 })
+      .populate('vendors', 'businessName category photo vendorCode');
+    res.json({ success: true, events });
+  } catch (err) {
+    res.status(500).json({ success: false, message: (err as Error).message });
+  }
+};
+
 // ── Create event (organizer only) ─────────────────────────────────────────────
 
 export const createEvent = async (req: Request, res: Response): Promise<void> => {
@@ -66,7 +79,7 @@ export const addVendor = async (req: Request, res: Response): Promise<void> => {
       { _id: req.params['id'], organizer: req.user!._id },
       { $addToSet: { vendors: vendorId } },
       { new: true }
-    );
+    ).populate('vendors', 'businessName category photo vendorCode');
     if (!event) { res.status(404).json({ success: false, message: 'Event not found or not yours' }); return; }
     res.json({ success: true, vendors: event.vendors });
   } catch (err) {
@@ -82,7 +95,7 @@ export const removeVendor = async (req: Request, res: Response): Promise<void> =
       { _id: req.params['id'], organizer: req.user!._id },
       { $pull: { vendors: req.params['vendorId'] } },
       { new: true }
-    );
+    ).populate('vendors', 'businessName category photo vendorCode');
     if (!event) { res.status(404).json({ success: false, message: 'Event not found or not yours' }); return; }
     res.json({ success: true, vendors: event.vendors });
   } catch (err) {

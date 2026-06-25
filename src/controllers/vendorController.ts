@@ -1,8 +1,6 @@
 import { Request, Response } from 'express';
 import VendorProfile from '../models/VendorProfile';
-import { uploadBuffer, destroy } from '../config/cloudinary';
-
-const FOLDER = 'campus_fair/vendors';
+import { destroy } from '../config/cloudinary';
 
 const parseJSON = <T>(value: unknown): T | undefined => {
   if (typeof value === 'string') {
@@ -80,24 +78,21 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-// ── Upload / replace cover photo ──────────────────────────────────────────────
+// ── Update cover photo (Flutter uploads to Cloudinary, sends back the URL) ───
 
-export const uploadPhoto = async (req: Request, res: Response): Promise<void> => {
+export const updatePhoto = async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!req.file) { res.status(400).json({ success: false, message: 'No image uploaded' }); return; }
+    const { url, publicId } = req.body as { url?: string; publicId?: string };
+    if (!url) { res.status(400).json({ success: false, message: 'Photo url is required' }); return; }
+
     const profile = await VendorProfile.findOne({ user: req.user!._id });
     if (!profile) { res.status(404).json({ success: false, message: 'Profile not found' }); return; }
 
-    if (profile.photo?.publicId) await destroy(profile.photo.publicId).catch(console.error);
+    if (profile.photo?.publicId && profile.photo.publicId !== publicId) {
+      await destroy(profile.photo.publicId).catch(console.error);
+    }
 
-    const result = await uploadBuffer(req.file.buffer, {
-      folder: `${FOLDER}/${String(req.user!._id)}/photo`,
-      public_id: 'cover',
-      overwrite: true,
-      transformation: [{ width: 1200, height: 750, crop: 'fill', quality: 'auto:good' }],
-    });
-
-    profile.photo = { url: result.secure_url, publicId: result.public_id };
+    profile.photo = { url, publicId: publicId ?? '' };
     await profile.save();
     res.json({ success: true, photo: profile.photo });
   } catch (err) {
@@ -105,22 +100,18 @@ export const uploadPhoto = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
-// ── Add gallery image ─────────────────────────────────────────────────────────
+// ── Add gallery image (Flutter uploads to Cloudinary, sends back the URL) ────
 
 export const addGalleryImage = async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!req.file) { res.status(400).json({ success: false, message: 'No image uploaded' }); return; }
+    const { url, publicId } = req.body as { url?: string; publicId?: string };
+    if (!url) { res.status(400).json({ success: false, message: 'Image url is required' }); return; }
+
     const profile = await VendorProfile.findOne({ user: req.user!._id });
     if (!profile) { res.status(404).json({ success: false, message: 'Profile not found' }); return; }
     if (profile.gallery.length >= 8) { res.status(400).json({ success: false, message: 'Gallery is full (max 8 images)' }); return; }
 
-    const result = await uploadBuffer(req.file.buffer, {
-      folder: `${FOLDER}/${String(req.user!._id)}/gallery`,
-      public_id: `gallery_${Date.now()}`,
-      transformation: [{ width: 900, height: 900, crop: 'fill', quality: 'auto:good' }],
-    });
-
-    profile.gallery.push({ url: result.secure_url, publicId: result.public_id });
+    profile.gallery.push({ url, publicId: publicId ?? '' });
     await profile.save();
     res.status(201).json({ success: true, gallery: profile.gallery });
   } catch (err) {

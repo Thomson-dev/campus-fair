@@ -5,28 +5,25 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import connectDB from './src/config/db';
+import { startExpireOrdersJob } from './src/jobs/expireOrders';
 import authRoutes         from './src/routes/auth';
 import vendorRoutes       from './src/routes/vendor';
 import productRoutes      from './src/routes/products';
 import studentRoutes      from './src/routes/student';
 import eventRoutes        from './src/routes/events';
 import orderRoutes        from './src/routes/orders';
-import paymentRoutes      from './src/routes/payments';
 import announcementRoutes from './src/routes/announcements';
 
 const app = express();
 
 connectDB();
+startExpireOrdersJob();
 
 // ── Security & parsing ────────────────────────────────────────────────────────
 app.use(helmet());
 app.use(cors({ origin: process.env['CLIENT_ORIGIN'] ?? '*', credentials: true }));
 app.use(morgan(process.env['NODE_ENV'] === 'production' ? 'combined' : 'dev'));
 
-// Webhook needs raw body for Paystack HMAC signature verification
-app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
-
-// All other routes get JSON parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -45,7 +42,6 @@ app.use('/api/products',      productRoutes);
 app.use('/api/student',       studentRoutes);
 app.use('/api/events',        eventRoutes);
 app.use('/api/orders',        orderRoutes);
-app.use('/api/payments',      paymentRoutes);
 app.use('/api/announcements', announcementRoutes);
 
 app.get('/health', (_req: Request, res: Response) =>

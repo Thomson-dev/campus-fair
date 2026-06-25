@@ -1,10 +1,9 @@
 import { Request, Response } from 'express';
 import Announcement from '../models/Announcement';
 import VendorProfile from '../models/VendorProfile';
-import { uploadBuffer, destroy } from '../config/cloudinary';
+import { destroy } from '../config/cloudinary';
 
 const MONTHLY_LIMIT = 4;
-const FOLDER = 'campus_fair/announcements';
 
 // ── Create announcement (vendor only) ─────────────────────────────────────────
 
@@ -23,19 +22,7 @@ export const createAnnouncement = async (req: Request, res: Response): Promise<v
       return;
     }
 
-    const { text } = req.body as { text: string };
-    let imageUrl: string | undefined;
-    let imagePublicId: string | undefined;
-
-    if (req.file) {
-      const result = await uploadBuffer(req.file.buffer, {
-        folder: `${FOLDER}/${String(profile._id)}`,
-        public_id: `ann_${Date.now()}`,
-        transformation: [{ width: 1200, height: 800, crop: 'fill', quality: 'auto:good' }],
-      });
-      imageUrl = result.secure_url;
-      imagePublicId = result.public_id;
-    }
+    const { text, imageUrl, imagePublicId } = req.body as { text: string; imageUrl?: string; imagePublicId?: string };
 
     const announcement = await Announcement.create({ vendor: profile._id, text, imageUrl, imagePublicId });
     res.status(201).json({ success: true, announcement, remaining: MONTHLY_LIMIT - (countThisMonth + 1) });

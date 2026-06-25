@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { protect, restrictTo } from '../middleware/auth';
-import upload from '../middleware/upload';
 import * as ctrl from '../controllers/vendorController';
 
 const router = Router();
@@ -15,9 +14,9 @@ router.post('/profile',                       restrictTo('vendor'), ctrl.createP
 router.get('/profile',                        restrictTo('vendor'), ctrl.getMyProfile);
 router.put('/profile',                        restrictTo('vendor'), ctrl.updateProfile);
 
-// ── Media ─────────────────────────────────────────────────────────────────────
-router.post('/profile/photo',                 restrictTo('vendor'), upload.single('photo'),  ctrl.uploadPhoto);
-router.post('/profile/gallery',               restrictTo('vendor'), upload.single('image'),  ctrl.addGalleryImage);
+// ── Media (Flutter uploads directly to Cloudinary, backend just stores the URL) ─
+router.put('/profile/photo',                  restrictTo('vendor'), ctrl.updatePhoto);
+router.post('/profile/gallery',               restrictTo('vendor'), ctrl.addGalleryImage);
 router.delete('/profile/gallery/:publicId',   restrictTo('vendor'),                          ctrl.deleteGalleryImage);
 
 // ── Contact & delivery ────────────────────────────────────────────────────────

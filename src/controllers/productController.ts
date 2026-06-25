@@ -1,9 +1,8 @@
 import { Request, Response } from 'express';
 import Product from '../models/Product';
 import VendorProfile from '../models/VendorProfile';
-import { uploadBuffer, destroy } from '../config/cloudinary';
+import { destroy } from '../config/cloudinary';
 
-const FOLDER = 'campus_fair/products';
 const MAX_PRODUCTS = 50;
 
 // ── List products for a vendor (public) ───────────────────────────────────────
@@ -37,7 +36,7 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    const { name, description, price, imageUrl } = req.body as Record<string, string>;
+    const { name, description, price, imageUrl, imagePublicId } = req.body as Record<string, string>;
 
     // position = timestamp so new products appear at the bottom by default
     const product = await Product.create({
@@ -46,7 +45,7 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       description,
       price: Number(price),
       position: Date.now(),
-      ...(imageUrl && { imageUrl }),
+      ...(imageUrl && { imageUrl, imagePublicId }),
     });
 
     res.status(201).json({ success: true, product });
@@ -66,9 +65,16 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
     if (!profile) { res.status(404).json({ success: false, message: 'Profile not found' }); return; }
 
     // Whitelist updatable fields to prevent mass-assignment
-    const allowed = ['name', 'description', 'price', 'position', 'imageUrl'] as const;
+    const allowed = ['name', 'description', 'price', 'position', 'imageUrl', 'imagePublicId'] as const;
     const updates: Record<string, unknown> = {};
     allowed.forEach((k) => { if (req.body[k] !== undefined) updates[k] = k === 'price' || k === 'position' ? Number(req.body[k]) : req.body[k]; });
+
+    const existing = await Product.findOne({ _id: req.params['id'], vendor: profile._id });
+    if (!existing) { res.status(404).json({ success: false, message: 'Product not found' }); return; }
+
+    if (updates['imageUrl'] && existing.imagePublicId && updates['imagePublicId'] !== existing.imagePublicId) {
+      await destroy(existing.imagePublicId).catch(console.error);
+    }
 
     const product = await Product.findOneAndUpdate(
       { _id: req.params['id'], vendor: profile._id },
@@ -117,40 +123,6 @@ export const toggleAvailability = async (req: Request, res: Response): Promise<v
     product.available = !product.available;
     await product.save();
     res.json({ success: true, available: product.available });
-  } catch (err) {
-    res.status(500).json({ success: false, message: (err as Error).message });
-  }
-};
-
-// ── Upload product image ──────────────────────────────────────────────────────
-// POST /api/products/:id/image  (multipart/form-data, field: "image")
-// Alternative to passing imageUrl in the body — uploads the raw file to Cloudinary
-// and updates the product record. Deletes the previous image if one exists.
-
-export const uploadProductImage = async (req: Request, res: Response): Promise<void> => {
-  try {
-    if (!req.file) { res.status(400).json({ success: false, message: 'No image uploaded' }); return; }
-
-    const profile = await VendorProfile.findOne({ user: req.user!._id });
-    if (!profile) { res.status(404).json({ success: false, message: 'Profile not found' }); return; }
-
-    const product = await Product.findOne({ _id: req.params['id'], vendor: profile._id });
-    if (!product) { res.status(404).json({ success: false, message: 'Product not found' }); return; }
-
-    // Remove old Cloudinary asset before uploading the replacement
-    if (product.imagePublicId) await destroy(product.imagePublicId).catch(console.error);
-
-    const result = await uploadBuffer(req.file.buffer, {
-      folder: `${FOLDER}/${String(profile._id)}`,
-      public_id: `product_${String(product._id)}`,
-      overwrite: true,
-      transformation: [{ width: 800, height: 800, crop: 'fill', quality: 'auto:good' }],
-    });
-
-    product.imageUrl = result.secure_url;
-    product.imagePublicId = result.public_id;
-    await product.save();
-    res.json({ success: true, imageUrl: product.imageUrl });
   } catch (err) {
     res.status(500).json({ success: false, message: (err as Error).message });
   }
