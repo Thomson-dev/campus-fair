@@ -13,6 +13,7 @@ import studentRoutes      from './src/routes/student';
 import eventRoutes        from './src/routes/events';
 import orderRoutes        from './src/routes/orders';
 import announcementRoutes from './src/routes/announcements';
+import appRoutes          from './src/routes/app';
 
 const app = express();
 
@@ -43,6 +44,7 @@ app.use('/api/student',       studentRoutes);
 app.use('/api/events',        eventRoutes);
 app.use('/api/orders',        orderRoutes);
 app.use('/api/announcements', announcementRoutes);
+app.use('/api/app',           appRoutes);
 
 app.get('/health', (_req: Request, res: Response) =>
   res.json({ status: 'ok', env: process.env['NODE_ENV'] })
