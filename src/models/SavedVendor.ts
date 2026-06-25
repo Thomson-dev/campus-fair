@@ -4,6 +4,7 @@ export interface ISavedVendor {
   student: Types.ObjectId;
   vendor: Types.ObjectId;
   savedAt: Date;
+  muted: boolean;
 }
 
 type SavedVendorModelType = Model<ISavedVendor>;
@@ -14,6 +15,7 @@ const savedVendorSchema = new Schema<ISavedVendor, SavedVendorModelType>(
     student: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     vendor:  { type: Schema.Types.ObjectId, ref: 'VendorProfile', required: true },
     savedAt: { type: Date, default: Date.now },
+    muted:   { type: Boolean, default: false },
   },
   { timestamps: false }
 );

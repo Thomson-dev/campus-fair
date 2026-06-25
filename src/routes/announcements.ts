@@ -9,6 +9,7 @@ router.get('/vendor/:vendorId', ctrl.listAnnouncements);
 
 // Vendor only
 router.use(protect, restrictTo('vendor'));
+router.get('/usage',    ctrl.getAnnouncementUsage);
 router.post('/',        ctrl.createAnnouncement);
 router.delete('/:id',   ctrl.deleteAnnouncement);
 

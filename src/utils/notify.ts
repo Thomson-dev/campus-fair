@@ -35,3 +35,12 @@ export async function sendToUser(
     console.error('[notify] FCM send failed:', (err as Error).message);
   }
 }
+
+export async function sendToMany(
+  fcmTokens: string[],
+  title: string,
+  body: string,
+  data?: Record<string, string>
+): Promise<void> {
+  await Promise.all(fcmTokens.map((token) => sendToUser(token, title, body, data)));
+}

@@ -3,6 +3,7 @@ import VendorProfile from '../models/VendorProfile';
 import SavedVendor from '../models/SavedVendor';
 import Product from '../models/Product';
 import User from '../models/User';
+import Announcement from '../models/Announcement';
 import { sendToUser } from '../utils/notify';
 
 // ── Save vendor by code ───────────────────────────────────────────────────────
@@ -72,8 +73,43 @@ export const getSaved = async (req: Request, res: Response): Promise<void> => {
         populate: { path: 'user', select: 'name email phone' },
       });
 
-    const vendors = saved.map((s) => s.vendor);
+    const vendors = saved.map((s) => ({ ...(s.vendor as unknown as { toObject: () => Record<string, unknown> }).toObject(), muted: s.muted }));
     res.json({ success: true, vendors, count: vendors.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: (err as Error).message });
+  }
+};
+
+// ── Mute / unmute a saved vendor's announcements ──────────────────────────────
+
+export const setVendorMute = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { muted } = req.body as { muted: boolean };
+    const saved = await SavedVendor.findOneAndUpdate(
+      { student: req.user!._id, vendor: req.params['vendorId'] },
+      { $set: { muted: !!muted } },
+      { new: true }
+    );
+    if (!saved) { res.status(404).json({ success: false, message: 'Vendor not in your saved list' }); return; }
+    res.json({ success: true, muted: saved.muted });
+  } catch (err) {
+    res.status(500).json({ success: false, message: (err as Error).message });
+  }
+};
+
+// ── Announcement feed — across every vendor the student has saved ────────────
+
+export const getAnnouncementFeed = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const saved = await SavedVendor.find({ student: req.user!._id }).select('vendor');
+    const vendorIds = saved.map((s) => s.vendor);
+
+    const announcements = await Announcement.find({ vendor: { $in: vendorIds } })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .populate('vendor', 'businessName photo');
+
+    res.json({ success: true, announcements });
   } catch (err) {
     res.status(500).json({ success: false, message: (err as Error).message });
   }
