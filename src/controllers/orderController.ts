@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import Order from '../models/Order';
 import VendorProfile from '../models/VendorProfile';
 import Product from '../models/Product';
@@ -37,7 +38,10 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
     const subtotal = lineItems.reduce((s, i) => s + i.subtotal, 0);
     const totalAmount = subtotal + Number(deliveryFee);
 
+    const _id = new mongoose.Types.ObjectId();
     const order = await Order.create({
+      _id,
+      orderId: `ORD-${_id.toString().slice(-6).toUpperCase()}`,
       student: req.user!._id,
       studentName: req.user!.name,
       studentPhone: req.user!.phone,
